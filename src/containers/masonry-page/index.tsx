@@ -1,19 +1,89 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+// 类
 import { pageMap } from "./page-map";
-
+import { MasonryImage } from "./masonry-image";
+// 组件
 import Card from "../../components/card";
-
+// 常量
+import { fakeImages } from "../../constants/images";
+// CSS
 import './index.scss';
+
+const xAxisGap = 4, yAxisGap = 10
+
+const itemWidth = 235; // 每一项子元素的宽度，即图片在瀑布流中显示宽度，保证每一项等宽不等高
+// 获取当前的页面宽度和计算得出的列数
+const getColumnAndPageWidth = (): {
+    pageWidth: number;
+    pageHeight: number;
+    column: number;
+} => {
+    const pageWidth = global.innerWidth;
+    const pageHeight = global.innerHeight;
+    return {
+        pageWidth,
+        pageHeight,
+        column: Math.floor(pageWidth / (itemWidth + xAxisGap)),
+    };
+}
+
+// 获取heightArr数组中最小列的索引
+const getMinIndex = (array: number[]): number => {
+    const min = Math.min(...array);
+    return array.indexOf(min);
+}
 
 const itemHeight = 100;
 const total = 10000;
 let id = 0;
 
+// 从接口获取图片src列表
+const handleGetImages = (params: { start: number, end: number }): Promise<string[]> => {
+    return new Promise((resolve) => {
+        resolve(fakeImages.slice(params.start, params.end));
+    });
+};
+
+// 并行加载，获取每一个图片的高度
+const loadImgHeights = (images: string[], itemWidth: number): Promise<MasonryImage[]> => {
+    return new Promise((resolve, reject) => {
+        const length = images.length
+        const masonryImages: MasonryImage[] = [];
+
+        let count = 0
+        const load = (index: number) => {
+            const img = new Image();
+            img.src = images[index];
+            const checkIfFinished = () => {
+                count++
+                if (count === length) {
+                    resolve(masonryImages)
+                }
+            }
+            img.onload = () => {
+                // 显示在瀑布流中的高度按照固定宽度以及图片比例计算
+                const itemHeight = itemWidth * (img.height / img.width)
+                const masonryImageIns = new MasonryImage(images[index], img, { sourceWidth: img.width, sourceHeight: img.height, masonryWidth: itemWidth, masonryHeight: itemHeight }, index + id);
+                masonryImages[index] = masonryImageIns;
+                checkIfFinished()
+            }
+            img.onerror = () => {
+                masonryImages[index] = new MasonryImage('');
+                checkIfFinished()
+            }
+            img.src = images[index]
+        }
+        images.forEach((img, index) => load(index));
+        id += images.length;
+    })
+}
+
 const MasonryPage: React.FC = () => {
     const ref = useRef<HTMLDivElement | null>(null);
 
     // 存储当前容器内的高度
-    const [heights, setHeights] = useState<number[]>([0]);
+    const [heights, setHeights] = useState<number[]>([]);
     // 当前是第几页
     const [pageIdx, setPageIdx] = useState<number>(0);
 
@@ -24,6 +94,7 @@ const MasonryPage: React.FC = () => {
 
     // 所有的数据
     const [listData, setListData] = useState<{ id: number; content: number; top: number }[]>([]);
+    const [images, setImages] = useState<MasonryImage[]>([]);
     // 偏移量
     const [startOffset, setStartOffset] = useState(0);
     // 起始索引
@@ -57,6 +128,39 @@ const MasonryPage: React.FC = () => {
         setHeights(currHeights);
         return dataArr;
     }, [heights, listData.length]);
+
+    // 获取图片
+    const genTenListImages = useCallback(async () => {
+        const imagesFromApi = await handleGetImages({start: id, end: id + 10});
+        const masonryImages = await loadImgHeights(imagesFromApi, itemWidth);
+
+        const { pageWidth, column } = getColumnAndPageWidth();
+
+        // 当前的高度列表
+        let heightArr = [...heights];
+        if (heights.length === 0) {
+            heightArr = Array(column).fill(0); // 如果heights.length === 0，意味着我们没有初始的heights数组，需要初始化
+        }
+        // 修改masonryImages的属性，按照heights数据修改每一个元素的宽高和位置 --> masonry重点
+        for (let i = 0; i < masonryImages.length; i++) {
+            const masonryImageInstance = masonryImages[i];
+            const minIndex = getMinIndex(heightArr);
+            // 定位这张图片的top
+            const imgTop = heightArr[minIndex] + yAxisGap;
+            masonryImageInstance && masonryImageInstance.setAttributes('offsetY', imgTop);
+            // 定位这张图片的left
+            const leftOffset = (pageWidth - (column * (itemWidth + xAxisGap) - xAxisGap)) / 2; // 左边padding，确保内容居中
+            const imgLeft = leftOffset + minIndex * (itemWidth + xAxisGap);
+            masonryImageInstance && masonryImageInstance.setAttributes('offsetX', imgLeft);
+
+            heightArr[minIndex] = imgTop + (masonryImageInstance.masonryHeight || 0);
+        };
+        setHeights(heightArr);
+        // 将新产生的image放入状态数组中
+        const prevImages = images;
+        prevImages.concat(masonryImages);
+        setImages(masonryImages);
+    }, [heights, images]);
 
     useEffect(() => {
         const data = genTenListData();

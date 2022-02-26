@@ -1,4 +1,4 @@
-export const images = [
+export const fakeImages = [
     'https://www.lilnong.top/static/img/avator/avator-0.jpg',
     'https://www.lilnong.top/static/img/avator/avator-1.jpg',
     "https://picsum.photos/id/1/200/300",
