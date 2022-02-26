@@ -15,7 +15,6 @@ interface IProps {
 }
 const Card: React.FC<IProps> = ({ data , itemHeight, className, image}) => {
     const ref = useRef<HTMLDivElement | null>(null);
-    console.log('image', image?.offsetX, image?.offsetY)
 
     return (
         // <div ref={ref} id={data.id.toString()} key={data.id} className={`${className} card`}

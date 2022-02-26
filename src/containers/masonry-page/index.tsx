@@ -103,7 +103,7 @@ const MasonryPage: React.FC = () => {
     const [end, setEnd] = useState(0);
     // 获取真实显示列表数据
     const visibleData = useMemo(() => {
-        console.log('数据变化', start);
+        console.log('数据变化', start, end, images);
         // 前后设置缓冲区域
         const visibleStart = Math.max(0, start - visibleCount);
         const visibleEnd = Math.min(images.length, end + visibleCount * 2);
@@ -112,11 +112,10 @@ const MasonryPage: React.FC = () => {
 
     // 获取图片
     const genTenListImages = useCallback(async () => {
-        const imagesFromApi = await handleGetImages({start: id, end: id + 10});
+        const imagesFromApi = await handleGetImages({start: images.length, end: images.length + 10});
 
         const masonryImages = await loadImgHeights(imagesFromApi, itemWidth);
         id += masonryImages.length;
-        console.log('image-api', JSON.stringify(masonryImages));
 
         const { pageWidth, column } = getColumnAndPageWidth();
 
@@ -138,19 +137,23 @@ const MasonryPage: React.FC = () => {
             masonryImageInstance && masonryImageInstance.setAttributes('offsetX', imgLeft);
 
             heightArr[minIndex] = imgTop + (masonryImageInstance.masonryHeight || 0);
-        };
+        }
         setHeights(heightArr);
         // 将新产生的image放入状态数组中
         const prevImages = images;
+        console.log('newImage', prevImages, masonryImages, prevImages.concat(masonryImages));
         prevImages.concat(masonryImages);
-        setImages(masonryImages);
+        // setImages(prevImages);
+        setImages((prev) => ([...prev, ...masonryImages]))
     }, [heights, images]);
 
     useEffect(() => {
         genTenListImages().then();
     }, []);
 
-    const handleScroll = useCallback(() => {
+    const tempHeight = useRef(containerHeight);
+
+    const handleScroll = useCallback(async () => {
         const dom = ref.current;
         if (dom) {
             const scrollTop = dom.scrollTop;
@@ -182,19 +185,22 @@ const MasonryPage: React.FC = () => {
                 setStart(tempStartIdx);
                 setEnd(tempEndIdx);
             }
-
-            if (listTotalHeight - scrollTop <= 1.5 * containerHeight) {
+            console.log('继续加载scroll', tempHeight, listTotalHeight, scrollTop, 1.5 * containerHeight)
+            // TODO: 现在剩下的问题就在于这里，我们必须要让高度被及时撑开，否则会多次请求数据，之后就全乱了
+            if (tempHeight.current - scrollTop <= 1.5 * containerHeight) {
                 // 滚动到页面的一半程度，家在新的数据，使得用户无感知
-                console.log('继续加载', listTotalHeight, scrollTop);
-                genTenListImages().then();
+                console.log('继续加载-1', tempHeight, listTotalHeight - scrollTop, 1.5 * containerHeight, Math.max(...heights));
+                tempHeight.current += containerHeight + containerHeight;
+                await genTenListImages();
             }
 
             // 这里利用React的状态更新机制，相当于不断将上一轮的状态进行赋值，由于scroll是连续的事件，就可以在滚到需要的位置之前将容器高度撑开到正确的值。
             // 但实际上我们使用了绝对定位，将容器高度设置为0也是一样的效果，只是为了在DOM结构上显示更好，还是设置了一个高度值
+            console.log('继续加载-设置offset', listTotalHeight);
             setStartOffset(listTotalHeight);
         }
 
-    }, [containerHeight, genTenListImages, images]);
+    }, [tempHeight, containerHeight, genTenListImages, heights, images]);
 
     useEffect(() => {
         const dom = ref.current;
@@ -209,14 +215,14 @@ const MasonryPage: React.FC = () => {
     }, [handleScroll]);
 
     return (
-        <div className="masonry-page" ref={ref} >
+        <div className="masonry-page" ref={ref}>
             <div className={'masonry'}
                  style={{
                      height: `${startOffset}px`
                  }}
             >
                 <div className={'masonry-list'}>
-                    {visibleData.map((data) => (
+                    {images.map((data) => (
                         <Card className={'masonry-list-item'} key={data.id} image={data} itemHeight={itemHeight} />
                     ))}
                 </div>
