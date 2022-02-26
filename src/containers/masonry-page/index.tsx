@@ -29,19 +29,15 @@ const MasonryPage: React.FC = () => {
     // 起始索引
     const [start, setStart] = useState(0);
     // 结束索引
-    // 列表宗高度
-    const listHeight = useMemo(() => {
-        return listData.length * itemHeight;
-    }, [listData]);
-
+    const [end, setEnd] = useState(0);
     // 获取真实显示列表数据
     const visibleData = useMemo(() => {
         console.log('数据变化', start);
         // 前后设置缓冲区域
         const visibleStart = Math.max(0, start - visibleCount);
-        const visibleEnd = Math.min(listData.length, start + visibleCount * 3);
+        const visibleEnd = Math.min(listData.length, end + visibleCount * 2);
         return listData.slice(visibleStart, visibleEnd);
-    }, [listData, start, visibleCount]);
+    }, [listData, start, end, visibleCount]);
 
     // 产生随机数据
     const genTenListData = useCallback((offset = 0) => {
@@ -81,44 +77,36 @@ const MasonryPage: React.FC = () => {
             if (pageMap.has(currPageIdx)) {
                 // 存在记录时直接取到start和end，不要再计算
                 const storedCurrStartIdx = pageMap.getInfo(currPageIdx)?.startIdx!;
-                const storedCurrEndIdx = pageMap.getInfo(currPageIdx)?.endIdx;
+                const storedCurrEndIdx = pageMap.getInfo(currPageIdx)?.endIdx!;
                 console.log('已经有了', storedCurrStartIdx, storedCurrEndIdx)
                 setStart(storedCurrStartIdx);
+                setEnd(storedCurrEndIdx);
             } else {
-                // 不存在记录时要找出当前页的start和end
-                if (currPageIdx === 0) {
-                    let tempEndIdx = 0;
-                    for (let i = 0; i < listData.length; i++) {
-                        if (listData[i].top <= containerHeight * (currPageIdx + 1)) {
-                            tempEndIdx = i;
-                        }
+                // 不存在记录，需要找到当前页的start和end并存储
+                // 由于我们由上至下滚动，当滚动到currPageIdx时，我们一定存储过currPageIdx - 1的信息，不存在就意味着这是第一页
+                let tempStartIdx = pageMap.getInfo(currPageIdx - 1)?.endIdx ?? 0;
+                let tempEndIdx = pageMap.getInfo(currPageIdx - 1)?.endIdx ?? 0;
+                for (let i = tempStartIdx + 1; i < listData.length; i++) {
+                    if (listData[i].top <= containerHeight * (currPageIdx + 1)) {
+                        tempEndIdx = i;
                     }
-                    pageMap.setInfo(currPageIdx, {startIdx: 0, endIdx: tempEndIdx});
-                    setStart(0);
-                    console.log('初次添加temEnd', tempEndIdx)
-                } else {
-                    let tempStartIdx = pageMap.getInfo(currPageIdx - 1)?.endIdx ?? 0;
-                    let tempEndIdx = pageMap.getInfo(currPageIdx - 1)?.endIdx ?? 0;
-                    if (tempStartIdx && tempEndIdx) {
-                        for (let i = tempStartIdx + 1; i < listData.length; i++) {
-                            if (listData[i].top <= containerHeight * (currPageIdx + 1)) {
-                                tempEndIdx = i;
-                            }
-                        }
-                    }
-                    pageMap.setInfo(currPageIdx, {startIdx: tempStartIdx, endIdx: tempEndIdx});
-                    setStart(tempStartIdx);
-                    console.log('初次添加temStart & temEnd', tempStartIdx, tempEndIdx)
                 }
+                pageMap.setInfo(currPageIdx, {startIdx: tempStartIdx, endIdx: tempEndIdx});
+                setStart(tempStartIdx);
+                setEnd(tempEndIdx);
+                console.log('添加有几次判断+++再次', listData.length - tempStartIdx - 1, tempStartIdx, tempEndIdx)
             }
 
             if (listTotalHeight - scrollTop <= 1.5 * containerHeight) {
                 // 滚动到页面的一半程度，家在新的数据，使得用户无感知
+                console.log('继续加载', listTotalHeight, scrollTop)
                 const data = listData.concat(genTenListData(listData.length * itemHeight));
                 setListData(data);
             }
 
-            setStartOffset(scrollTop);
+            // 这里利用React的状态更新机制，相当于不断将上一轮的状态进行赋值，由于scroll是连续的事件，就可以在滚到需要的位置之前将容器高度撑开到正确的值。
+            // 但实际上我们使用了绝对定位，将容器高度设置为0也是一样的效果，只是为了在DOM结构上显示更好，还是设置了一个高度值
+            setStartOffset(listTotalHeight);
         }
 
     }, [containerHeight, genTenListData, listData, visibleCount]);
@@ -137,7 +125,11 @@ const MasonryPage: React.FC = () => {
 
     return (
         <div className="masonry-page" ref={ref} >
-            <div className={'masonry'} style={{ height: Math.max(listHeight, containerHeight + 1) }}>
+            <div className={'masonry'}
+                 style={{
+                     height: `${startOffset}px`
+                 }}
+            >
                 <div className={'masonry-list'}>
                     {visibleData.map((data) => (
                         <Card className={'masonry-list-item'} key={data.id} data={data} itemHeight={itemHeight} />
