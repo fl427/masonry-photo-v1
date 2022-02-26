@@ -1,0 +1,26 @@
+.masonry-page {
+  text-align: center;
+  height: 100vh;
+  width: 100vw;
+  overflow: scroll;
+  position: relative;
+
+  .masonry {
+    position: relative;
+
+    &-list {
+      position: relative;
+
+      &-item {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        border: 1px solid red;
+      }
+    }
+  }
+}
+
+
+
