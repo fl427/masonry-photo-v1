@@ -75,7 +75,7 @@ const loadImgHeights = (images: string[], itemWidth: number): Promise<MasonryIma
             img.src = images[index]
         }
         images.forEach((img, index) => load(index));
-        id += images.length;
+
     })
 }
 
@@ -93,7 +93,7 @@ const MasonryPage: React.FC = () => {
     const visibleCount = Math.floor(containerHeight / itemHeight);
 
     // 所有的数据
-    const [listData, setListData] = useState<{ id: number; content: number; top: number }[]>([]);
+    // const [listData, setListData] = useState<{ id: number; content: number; top: number }[]>([]);
     const [images, setImages] = useState<MasonryImage[]>([]);
     // 偏移量
     const [startOffset, setStartOffset] = useState(0);
@@ -106,33 +106,17 @@ const MasonryPage: React.FC = () => {
         console.log('数据变化', start);
         // 前后设置缓冲区域
         const visibleStart = Math.max(0, start - visibleCount);
-        const visibleEnd = Math.min(listData.length, end + visibleCount * 2);
-        return listData.slice(visibleStart, visibleEnd);
-    }, [listData, start, end, visibleCount]);
-
-    // 产生随机数据
-    const genTenListData = useCallback((offset = 0) => {
-        if (listData.length >= total) {
-            return [];
-        }
-        let currHeights = [...heights];
-
-        const dataArr = new Array(10).fill({}).map((_, idx) => {
-            currHeights[0] += itemHeight;
-            return {
-                id: id++,
-                content: Math.random() * 1000,
-                top: idx * itemHeight + offset,
-            }
-        });
-        setHeights(currHeights);
-        return dataArr;
-    }, [heights, listData.length]);
+        const visibleEnd = Math.min(images.length, end + visibleCount * 2);
+        return images.slice(visibleStart, visibleEnd);
+    }, [start, visibleCount, images, end]);
 
     // 获取图片
     const genTenListImages = useCallback(async () => {
         const imagesFromApi = await handleGetImages({start: id, end: id + 10});
+
         const masonryImages = await loadImgHeights(imagesFromApi, itemWidth);
+        id += masonryImages.length;
+        console.log('image-api', JSON.stringify(masonryImages));
 
         const { pageWidth, column } = getColumnAndPageWidth();
 
@@ -163,8 +147,7 @@ const MasonryPage: React.FC = () => {
     }, [heights, images]);
 
     useEffect(() => {
-        const data = genTenListData();
-        setListData(data);
+        genTenListImages().then();
     }, []);
 
     const handleScroll = useCallback(() => {
@@ -190,22 +173,20 @@ const MasonryPage: React.FC = () => {
                 // 由于我们由上至下滚动，当滚动到currPageIdx时，我们一定存储过currPageIdx - 1的信息，不存在就意味着这是第一页
                 let tempStartIdx = pageMap.getInfo(currPageIdx - 1)?.endIdx ?? 0;
                 let tempEndIdx = pageMap.getInfo(currPageIdx - 1)?.endIdx ?? 0;
-                for (let i = tempStartIdx + 1; i < listData.length; i++) {
-                    if (listData[i].top <= containerHeight * (currPageIdx + 1)) {
+                for (let i = tempStartIdx + 1; i < images.length; i++) {
+                    if ((images[i].offsetY || Infinity) <= containerHeight * (currPageIdx + 1)) {
                         tempEndIdx = i;
                     }
                 }
                 pageMap.setInfo(currPageIdx, {startIdx: tempStartIdx, endIdx: tempEndIdx});
                 setStart(tempStartIdx);
                 setEnd(tempEndIdx);
-                console.log('添加有几次判断+++再次', listData.length - tempStartIdx - 1, tempStartIdx, tempEndIdx)
             }
 
             if (listTotalHeight - scrollTop <= 1.5 * containerHeight) {
                 // 滚动到页面的一半程度，家在新的数据，使得用户无感知
-                console.log('继续加载', listTotalHeight, scrollTop)
-                const data = listData.concat(genTenListData(listData.length * itemHeight));
-                setListData(data);
+                console.log('继续加载', listTotalHeight, scrollTop);
+                genTenListImages().then();
             }
 
             // 这里利用React的状态更新机制，相当于不断将上一轮的状态进行赋值，由于scroll是连续的事件，就可以在滚到需要的位置之前将容器高度撑开到正确的值。
@@ -213,7 +194,7 @@ const MasonryPage: React.FC = () => {
             setStartOffset(listTotalHeight);
         }
 
-    }, [containerHeight, genTenListData, listData, visibleCount]);
+    }, [containerHeight, genTenListImages, images]);
 
     useEffect(() => {
         const dom = ref.current;
@@ -236,7 +217,7 @@ const MasonryPage: React.FC = () => {
             >
                 <div className={'masonry-list'}>
                     {visibleData.map((data) => (
-                        <Card className={'masonry-list-item'} key={data.id} data={data} itemHeight={itemHeight} />
+                        <Card className={'masonry-list-item'} key={data.id} image={data} itemHeight={itemHeight} />
                     ))}
                 </div>
             </div>
