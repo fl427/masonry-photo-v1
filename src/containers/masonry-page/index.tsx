@@ -35,7 +35,6 @@ const getMinIndex = (array: number[]): number => {
 }
 
 const itemHeight = 100;
-const total = 10000;
 let id = 0;
 
 // 从接口获取图片src列表
@@ -146,10 +145,6 @@ const MasonryPage: React.FC = () => {
         }
         setHeights(heightArr);
         // 将新产生的image放入状态数组中
-        const prevImages = images;
-        console.log('newImage', prevImages, masonryImages, prevImages.concat(masonryImages));
-        prevImages.concat(masonryImages);
-        // setImages(prevImages);
         setImages((prev) => ([...prev, ...masonryImages]));
         isAdding.current = false;
     }, [heights, images]);
