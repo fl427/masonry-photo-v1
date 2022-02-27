@@ -41,7 +41,12 @@ let id = 0;
 // 从接口获取图片src列表
 const handleGetImages = (params: { start: number, end: number }): Promise<string[]> => {
     return new Promise((resolve) => {
-        resolve(fakeImages.slice(params.start, params.end));
+        if (params.start < fakeImages.length) {
+            resolve(fakeImages.slice(params.start, params.end));
+        } else {
+            resolve(fakeImages.slice(params.start % fakeImages.length, params.start % fakeImages.length + 10));
+        }
+
     });
 };
 
@@ -112,6 +117,7 @@ const MasonryPage: React.FC = () => {
 
     // 获取图片
     const genTenListImages = useCallback(async () => {
+        isAdding.current = true;
         const imagesFromApi = await handleGetImages({start: images.length, end: images.length + 10});
 
         const masonryImages = await loadImgHeights(imagesFromApi, itemWidth);
@@ -144,16 +150,18 @@ const MasonryPage: React.FC = () => {
         console.log('newImage', prevImages, masonryImages, prevImages.concat(masonryImages));
         prevImages.concat(masonryImages);
         // setImages(prevImages);
-        setImages((prev) => ([...prev, ...masonryImages]))
+        setImages((prev) => ([...prev, ...masonryImages]));
+        isAdding.current = false;
     }, [heights, images]);
 
     useEffect(() => {
         genTenListImages().then();
     }, []);
 
-    const tempHeight = useRef(containerHeight);
+    const isAdding = useRef(false);
 
     const handleScroll = useCallback(async () => {
+
         const dom = ref.current;
         if (dom) {
             const scrollTop = dom.scrollTop;
@@ -185,22 +193,31 @@ const MasonryPage: React.FC = () => {
                 setStart(tempStartIdx);
                 setEnd(tempEndIdx);
             }
-            console.log('继续加载scroll', tempHeight, listTotalHeight, scrollTop, 1.5 * containerHeight)
-            // TODO: 现在剩下的问题就在于这里，我们必须要让高度被及时撑开，否则会多次请求数据，之后就全乱了
-            if (tempHeight.current - scrollTop <= 1.5 * containerHeight) {
+            console.log('继续加载scroll', images.length, listTotalHeight - scrollTop, 1.5 * containerHeight)
+            // 问题在于这里，我们必须要让高度被及时撑开，否则会多次请求数据，之后就全乱了
+            if (listTotalHeight - scrollTop <= 1.5 * containerHeight) {
+                // 这里我们先手动阻断（之后再想想有没有更好的办法）
+                // 由于瀑布流布局需要时间，当新的内容还在布局的过程中时，它们还未被添加到DOM结构中，因此listTotalHeight没有更新
+                // 此时if判断成立，genTenListImages被持续触发，就出错了。因此在添加时手动加一个判断条件，直到当前的新元素添加完成才能继续添加
+                // 这样带来的问题就是用户滚动的速度超过元素添加的速度，那么更新就不及时。
+                // TODO 优化：1. 从后端直接返回图片高度可以省去图片预加载的步骤，直接完成布局，图片加载慢慢来
+                // 2. 以及更加早得加载新的数据，以让用户无感知
+                // 3. 添加'加载中'的过渡样式，以让用户有心理预期
+                if (isAdding.current) {
+                    console.log('继续加载scroll正在添加');
+                    return;
+                }
                 // 滚动到页面的一半程度，家在新的数据，使得用户无感知
-                console.log('继续加载-1', tempHeight, listTotalHeight - scrollTop, 1.5 * containerHeight, Math.max(...heights));
-                tempHeight.current += containerHeight + containerHeight;
+                console.log('继续加载-1', listTotalHeight - scrollTop, 1.5 * containerHeight, Math.max(...heights));
                 await genTenListImages();
             }
 
             // 这里利用React的状态更新机制，相当于不断将上一轮的状态进行赋值，由于scroll是连续的事件，就可以在滚到需要的位置之前将容器高度撑开到正确的值。
             // 但实际上我们使用了绝对定位，将容器高度设置为0也是一样的效果，只是为了在DOM结构上显示更好，还是设置了一个高度值
-            console.log('继续加载-设置offset', listTotalHeight);
             setStartOffset(listTotalHeight);
         }
 
-    }, [tempHeight, containerHeight, genTenListImages, heights, images]);
+    }, [containerHeight, genTenListImages, heights, images]);
 
     useEffect(() => {
         const dom = ref.current;
@@ -222,7 +239,7 @@ const MasonryPage: React.FC = () => {
                  }}
             >
                 <div className={'masonry-list'}>
-                    {images.map((data) => (
+                    {visibleData.map((data) => (
                         <Card className={'masonry-list-item'} key={data.id} image={data} itemHeight={itemHeight} />
                     ))}
                 </div>
