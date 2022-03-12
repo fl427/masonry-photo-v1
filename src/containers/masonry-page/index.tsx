@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import axios from '../../service';
 
 // 类
 import { pageMap } from "./page-map";
@@ -84,6 +85,11 @@ const loadImgHeights = (images: string[], itemWidth: number): Promise<MasonryIma
 }
 
 const MasonryPage: React.FC = () => {
+
+    useEffect(() => {
+        const result = axios.get('/', {});
+        console.log('result', result);
+    }, []);
     const ref = useRef<HTMLDivElement | null>(null);
 
     // 存储当前容器内的高度
@@ -117,7 +123,7 @@ const MasonryPage: React.FC = () => {
     // 获取图片
     const genTenListImages = useCallback(async () => {
         isAdding.current = true;
-        const imagesFromApi = await handleGetImages({start: images.length, end: images.length + 10});
+        const imagesFromApi = await handleGetImages({ start: images.length, end: images.length + 10 });
 
         const masonryImages = await loadImgHeights(imagesFromApi, itemWidth);
         id += masonryImages.length;
@@ -184,7 +190,7 @@ const MasonryPage: React.FC = () => {
                         tempEndIdx = i;
                     }
                 }
-                pageMap.setInfo(currPageIdx, {startIdx: tempStartIdx, endIdx: tempEndIdx});
+                pageMap.setInfo(currPageIdx, { startIdx: tempStartIdx, endIdx: tempEndIdx });
                 setStart(tempStartIdx);
                 setEnd(tempEndIdx);
             }
@@ -229,9 +235,9 @@ const MasonryPage: React.FC = () => {
     return (
         <div className="masonry-page" ref={ref}>
             <div className={'masonry'}
-                 style={{
-                     height: `${startOffset}px`
-                 }}
+                style={{
+                    height: `${startOffset}px`
+                }}
             >
                 <div className={'masonry-list'}>
                     {visibleData.map((data) => (
