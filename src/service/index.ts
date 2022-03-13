@@ -6,7 +6,7 @@ import axios, {
 } from 'axios';
 
 const TIME_OUT = 100000;
-const BASE_URL = 'http://localhost:4000';
+const BASE_URL = 'http://localhost:3000';
 
 const createInstance = (): AxiosInstance => {
     const instance = axios.create({

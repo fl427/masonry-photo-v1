@@ -106,6 +106,18 @@ module.exports = {
         })
     ],
     devServer: {
-
+        host: 'localhost',
+        hot: true,
+        port: 3000,
+        historyApiFallback: true,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+        },
+        proxy: {
+            '/api': {
+                target: "http://localhost:4000",
+                changeOrigin: true,
+            }
+        }
     }
 }
