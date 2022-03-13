@@ -86,10 +86,10 @@ const loadImgHeights = (images: string[], itemWidth: number): Promise<MasonryIma
 
 const MasonryPage: React.FC = () => {
 
-    useEffect(() => {
-        const result = axios.get('/', {});
-        console.log('result', result);
-    }, []);
+    // useEffect(() => {
+    //     const result = axios.get('/api', {});
+    //     console.log('result', result);
+    // }, []);
     const ref = useRef<HTMLDivElement | null>(null);
 
     // 存储当前容器内的高度
