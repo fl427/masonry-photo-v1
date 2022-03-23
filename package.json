@@ -22,7 +22,7 @@
     "eject": "react-scripts eject",
     "webpack-build": "NODE_ENV=production webpack --config build/webpack.prod.js --mode=production",
     "webpack-start": "NODE_ENV=development webpack-dev-server --hot --open --config build/webpack.dev.js --mode development",
-    "webpack-config-start": "webpack-dev-server --mode development --open --hot"
+    "webpack-config-start": "webpack-dev-server --config webpack.config-mine.js --mode development --open --hot"
   },
   "eslintConfig": {
     "extends": [
