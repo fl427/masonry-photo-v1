@@ -42,6 +42,7 @@ const Card: React.FC<IProps> = ({ data , itemHeight, className, image}) => {
             </div>
 
 
+            {/*<img className={'card-img'} src={image?.src}/>*/}
             <img className={'card-img'} src={image?.src}/>
         </div>
     )

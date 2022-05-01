@@ -65,7 +65,7 @@ const createInstance = (): AxiosInstance => {
 }
 
 interface Instance extends AxiosInstance {
-    (config: AxiosRequestConfig): Promise<unknown>;
+    (config: AxiosRequestConfig<{start: number; end: number}>): Promise<unknown>;
 }
 
 const instance: Instance = createInstance();

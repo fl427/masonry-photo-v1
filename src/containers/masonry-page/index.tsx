@@ -11,6 +11,12 @@ import { fakeImages } from "../../constants/images";
 // CSS
 import './index.scss';
 
+type LocalImageType = {
+    src: string;
+    width: number;
+    height: number;
+}
+
 const xAxisGap = 4, yAxisGap = 10
 
 const itemWidth = 235; // 每一项子元素的宽度，即图片在瀑布流中显示宽度，保证每一项等宽不等高
@@ -46,9 +52,20 @@ const handleGetImages = (params: { start: number, end: number }): Promise<string
         } else {
             resolve(fakeImages.slice(params.start % fakeImages.length, params.start % fakeImages.length + 10));
         }
-
     });
 };
+
+// 从接口获取本地图片src和宽高信息
+const handleGetLocalImages = async (params: { start: number, end: number }): Promise<LocalImageType[]> => {
+    const result = await axios.get('/api', {
+        params: {
+            start: params.start,
+            end: params.end,
+        }
+    });
+    console.log('result', result);
+    return result.data;
+}
 
 // 并行加载，获取每一个图片的高度
 const loadImgHeights = (images: string[], itemWidth: number): Promise<MasonryImage[]> => {
@@ -84,15 +101,20 @@ const loadImgHeights = (images: string[], itemWidth: number): Promise<MasonryIma
     })
 }
 
+const loadLocalImgHeights = (images: LocalImageType[], itemWidth: number): MasonryImage[] => {
+    const masonryImages: MasonryImage[] = [];
+
+    images.forEach((img, index) => {
+        const itemHeight = itemWidth * (img.height / img.width);
+        const masonryImageIns = new MasonryImage(img.src, new Image(), { sourceWidth: img.width, sourceHeight: img.height, masonryWidth: itemWidth, masonryHeight: itemHeight }, index + id);
+        masonryImages[index] = masonryImageIns;
+    });
+
+    return masonryImages;
+}
+
 const MasonryPage: React.FC = () => {
 
-    useEffect(() => {
-        (async () => {
-            const result = await axios.get('/api', {});
-            console.log('result', result);
-        })()
-
-    }, []);
     const ref = useRef<HTMLDivElement | null>(null);
 
     // 存储当前容器内的高度
@@ -158,8 +180,47 @@ const MasonryPage: React.FC = () => {
         isAdding.current = false;
     }, [heights, images]);
 
+    // 获取本地图片
+    const getLocalListImages = useCallback(async () => {
+        isAdding.current = true;
+        const imagesFromApi = await handleGetLocalImages({ start: images.length, end: images.length + 10 });
+
+        const masonryImages = loadLocalImgHeights(imagesFromApi, itemWidth);
+        id += masonryImages.length;
+
+        const { pageWidth, column } = getColumnAndPageWidth();
+
+        // 当前的高度列表
+        let heightArr = [...heights];
+        if (heights.length === 0) {
+            heightArr = Array(column).fill(0); // 如果heights.length === 0，意味着我们没有初始的heights数组，需要初始化
+        }
+        // 修改masonryImages的属性，按照heights数据修改每一个元素的宽高和位置 --> masonry重点
+        for (let i = 0; i < masonryImages.length; i++) {
+            const masonryImageInstance = masonryImages[i];
+            const minIndex = getMinIndex(heightArr);
+            // 定位这张图片的top
+            const imgTop = heightArr[minIndex] + yAxisGap;
+            masonryImageInstance && masonryImageInstance.setAttributes('offsetY', imgTop);
+            // 定位这张图片的left
+            const leftOffset = (pageWidth - (column * (itemWidth + xAxisGap) - xAxisGap)) / 2; // 左边padding，确保内容居中
+            const imgLeft = leftOffset + minIndex * (itemWidth + xAxisGap);
+            masonryImageInstance && masonryImageInstance.setAttributes('offsetX', imgLeft);
+
+            heightArr[minIndex] = imgTop + (masonryImageInstance.masonryHeight || 0);
+        }
+        setHeights(heightArr);
+        // 将新产生的image放入状态数组中
+        setImages((prev) => ([...prev, ...masonryImages]));
+        isAdding.current = false;
+    }, [heights, images]);
+
     useEffect(() => {
-        genTenListImages().then();
+        // genTenListImages().then();
+    }, []);
+
+    useEffect(() => {
+        getLocalListImages().then();
     }, []);
 
     const isAdding = useRef(false);
@@ -234,6 +295,8 @@ const MasonryPage: React.FC = () => {
             }
         }
     }, [handleScroll]);
+
+    console.log('result-image', visibleData);
 
     return (
         <div className="masonry-page" ref={ref}>
