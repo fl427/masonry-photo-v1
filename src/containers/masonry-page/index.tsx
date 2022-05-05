@@ -1,3 +1,4 @@
+// todo: 缓存机制做的不好
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from '../../service';
 
@@ -146,39 +147,39 @@ const MasonryPage: React.FC = () => {
     }, [start, visibleCount, images, end]);
 
     // 获取图片
-    const genTenListImages = useCallback(async () => {
-        isAdding.current = true;
-        const imagesFromApi = await handleGetImages({ start: images.length, end: images.length + 10 });
-
-        const masonryImages = await loadImgHeights(imagesFromApi, itemWidth);
-        id += masonryImages.length;
-
-        const { pageWidth, column } = getColumnAndPageWidth();
-
-        // 当前的高度列表
-        let heightArr = [...heights];
-        if (heights.length === 0) {
-            heightArr = Array(column).fill(0); // 如果heights.length === 0，意味着我们没有初始的heights数组，需要初始化
-        }
-        // 修改masonryImages的属性，按照heights数据修改每一个元素的宽高和位置 --> masonry重点
-        for (let i = 0; i < masonryImages.length; i++) {
-            const masonryImageInstance = masonryImages[i];
-            const minIndex = getMinIndex(heightArr);
-            // 定位这张图片的top
-            const imgTop = heightArr[minIndex] + yAxisGap;
-            masonryImageInstance && masonryImageInstance.setAttributes('offsetY', imgTop);
-            // 定位这张图片的left
-            const leftOffset = (pageWidth - (column * (itemWidth + xAxisGap) - xAxisGap)) / 2; // 左边padding，确保内容居中
-            const imgLeft = leftOffset + minIndex * (itemWidth + xAxisGap);
-            masonryImageInstance && masonryImageInstance.setAttributes('offsetX', imgLeft);
-
-            heightArr[minIndex] = imgTop + (masonryImageInstance.masonryHeight || 0);
-        }
-        setHeights(heightArr);
-        // 将新产生的image放入状态数组中
-        setImages((prev) => ([...prev, ...masonryImages]));
-        isAdding.current = false;
-    }, [heights, images]);
+    // const genTenListImages = useCallback(async () => {
+    //     isAdding.current = true;
+    //     const imagesFromApi = await handleGetImages({ start: images.length, end: images.length + 10 });
+    //
+    //     const masonryImages = await loadImgHeights(imagesFromApi, itemWidth);
+    //     id += masonryImages.length;
+    //
+    //     const { pageWidth, column } = getColumnAndPageWidth();
+    //
+    //     // 当前的高度列表
+    //     let heightArr = [...heights];
+    //     if (heights.length === 0) {
+    //         heightArr = Array(column).fill(0); // 如果heights.length === 0，意味着我们没有初始的heights数组，需要初始化
+    //     }
+    //     // 修改masonryImages的属性，按照heights数据修改每一个元素的宽高和位置 --> masonry重点
+    //     for (let i = 0; i < masonryImages.length; i++) {
+    //         const masonryImageInstance = masonryImages[i];
+    //         const minIndex = getMinIndex(heightArr);
+    //         // 定位这张图片的top
+    //         const imgTop = heightArr[minIndex] + yAxisGap;
+    //         masonryImageInstance && masonryImageInstance.setAttributes('offsetY', imgTop);
+    //         // 定位这张图片的left
+    //         const leftOffset = (pageWidth - (column * (itemWidth + xAxisGap) - xAxisGap)) / 2; // 左边padding，确保内容居中
+    //         const imgLeft = leftOffset + minIndex * (itemWidth + xAxisGap);
+    //         masonryImageInstance && masonryImageInstance.setAttributes('offsetX', imgLeft);
+    //
+    //         heightArr[minIndex] = imgTop + (masonryImageInstance.masonryHeight || 0);
+    //     }
+    //     setHeights(heightArr);
+    //     // 将新产生的image放入状态数组中
+    //     setImages((prev) => ([...prev, ...masonryImages]));
+    //     isAdding.current = false;
+    // }, [heights, images]);
 
     // 获取本地图片
     const getLocalListImages = useCallback(async () => {
@@ -274,7 +275,7 @@ const MasonryPage: React.FC = () => {
                 }
                 // 滚动到页面的一半程度，家在新的数据，使得用户无感知
                 console.log('继续加载-1', listTotalHeight - scrollTop, 1.5 * containerHeight, Math.max(...heights));
-                await genTenListImages();
+                await getLocalListImages();
             }
 
             // 这里利用React的状态更新机制，相当于不断将上一轮的状态进行赋值，由于scroll是连续的事件，就可以在滚到需要的位置之前将容器高度撑开到正确的值。
@@ -282,7 +283,7 @@ const MasonryPage: React.FC = () => {
             setStartOffset(listTotalHeight);
         }
 
-    }, [containerHeight, genTenListImages, heights, images]);
+    }, [containerHeight, getLocalListImages, heights, images]);
 
     useEffect(() => {
         const dom = ref.current;
